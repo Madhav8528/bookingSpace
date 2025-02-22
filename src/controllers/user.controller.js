@@ -11,10 +11,7 @@ import twilio from "twilio";
 const generateAccessAndRefreshTokens = async (userId) => {
     
     try {
-        if(!userId){
-            throw new ApiError(400, "User Id not found!")
-        }
-    
+        
         const user = await User.findById(userId);
         if(!user){
             throw new ApiError(401, "No user found with this userId")
@@ -33,11 +30,9 @@ const generateAccessAndRefreshTokens = async (userId) => {
             }
         )
     
-        return {
-                    accessToken, refreshToken
-        }       
+        return {accessToken, refreshToken};    
     } catch (error) {
-            console.log("Process error while generating access and refresh tokens, Please try again!")
+            console.log("Process error while generating access and refresh tokens, Please try again!", error)
     }
 }
 
@@ -224,7 +219,7 @@ const loginUser = asyncHandler( async (req, res) => {
         throw new ApiError(401, "Please enter a valid password")
    }
 
-   const {accessToken, refreshToken} = await generateAccessAndRefreshTokens(user._id)
+   const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id)
    const options = {
         secure : true,
         httpOnly : true
@@ -234,15 +229,79 @@ const loginUser = asyncHandler( async (req, res) => {
    if(!loggedInUser){
         throw new ApiError(404, "Something went wrong while logging user.")
    }
-   
+
    return res.status(200)
-   .cookie("Access Token", accessToken, options)
-   .cookie("Refresh Token", refreshToken, options)
+   .cookie("AccessToken", accessToken, options)
+   .cookie("RefreshToken", refreshToken, options)
    .json( new apiResponse(200, loggedInUser, "User logged in successfully") )
 })
 
 
+const logout = asyncHandler( async (req, res) => {
+    
+    await User.findByIdAndUpdate(
+        req.user._id,
+        {
+           $unset : {
+            refreshToken : 1
+        }
+    },
+    {
+        new : true
+    })
+
+    const options = {
+        httpOnly : true,
+        secure : true
+    }
+
+    return res.status(200)
+    .clearCookie("AccessToken", options)
+    .clearCookie("RefreshToken", options)
+    .json( new apiResponse(200, "User logged out successfully") )
+
+})
+
+
+const getUser = asyncHandler( async(req, res) => {
+
+    const user = await User.findById(req.user?._id).select("-password -RefreshToken")
+    if(!user){
+        throw new ApiError(402, "Kindly login to get user details")
+    }
+
+    return res.status(200)
+    .json( new apiResponse(200, user, "User details fetched successfully") )
+})
+
+
+const changePassword = asyncHandler( async (req, res) => {
+    
+    const { currentPassword, newPassword } = req.body
+    if(!newPassword){
+        throw new ApiError(400, "Please provide new password to continue")
+    }
+
+    if(!req.user){
+        throw new ApiError(402, "Kindly login to change the password")
+    }
+
+    const verifyPassword = await bcrypt.compare(currentPassword, req.user.password)
+    if(!verifyPassword){
+        throw new ApiError(400, "Current password entered is not correct")
+    }
+    const user = await User.findById(req.user?._id)
+    user.password = newPassword
+    await user.save({validateBeforeSave : false})
+
+    return res.status(200)
+    .json( new apiResponse(200, "New password set successfully") )
+
+})
 
 export { registerWithOtpGenerationUser,
-         loginUser
+         loginUser,
+         logout,
+         getUser,
+         changePassword
  }

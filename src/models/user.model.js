@@ -66,14 +66,16 @@ userSchema.pre("save", async function (next) {
     next();
 })
 
-userSchema.method.generateAccessToken = async () => {
+userSchema.methods.generateAccessToken = function (){
     
-    return await jwt.sign({
+    const payload = {
         _id : this._id,
         username : this.username,
         email : this.email,
         name : this.name
-    },
+    }
+    return jwt.sign(
+        payload,
         process.env.ACCESS_TOKEN_SECRET,
         {
             expiresIn : "18000000ms"
@@ -81,11 +83,13 @@ userSchema.method.generateAccessToken = async () => {
     )
 }
 
-userSchema.method.generateRefreshToken = async () => {
-    
-    return await jwt.sign({
+userSchema.methods.generateRefreshToken = function () {
+   
+    const payload = {
         _id : this._id,
-    },
+    }
+    return jwt.sign(
+        payload,
         process.env.REFRESH_TOKEN_SECRET,
         {
             expiresIn : "10d"
