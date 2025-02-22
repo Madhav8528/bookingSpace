@@ -1,9 +1,11 @@
 import { Router } from "express";
 import {changePassword,
+        forgetPassword,
         getUser,
         loginUser, 
         logout, 
-        registerWithOtpGenerationUser, 
+        registerWithOtpGenerationUser,
+        updateAccessToken, 
          
  } from "../controllers/user.controller.js";
 import { verifyJwt } from "../middlewares/auth.middleware.js"
@@ -15,6 +17,8 @@ router.route("/login").post(loginUser)
 router.route("/logout").post(verifyJwt, logout)
 router.route("/getUser").get(getUser)
 router.route("/change-password").post(changePassword)
+router.route("/refresh-access-token").post(updateAccessToken)
+router.route("/forgot-password").post(forgetPassword)
 
 
 export default router;

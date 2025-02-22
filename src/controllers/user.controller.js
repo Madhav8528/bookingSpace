@@ -7,6 +7,7 @@ import bcrypt from "bcrypt";
 import otpgenerator from "otp-generator";
 import nodemailer from "nodemailer";
 import twilio from "twilio";
+import jwt from "jsonwebtoken";
 
 const generateAccessAndRefreshTokens = async (userId) => {
     
@@ -281,6 +282,10 @@ const changePassword = asyncHandler( async (req, res) => {
     if(!newPassword){
         throw new ApiError(400, "Please provide new password to continue")
     }
+    const passwordRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/
+    if(passwordRegex.test(newPassword)===false){
+        throw new ApiError(400, "Please provide a password with atleast a Uppercase, a special character and a number")
+    }
 
     if(!req.user){
         throw new ApiError(402, "Kindly login to change the password")
@@ -299,9 +304,91 @@ const changePassword = asyncHandler( async (req, res) => {
 
 })
 
+
+const updateAccessToken = asyncHandler( async (req, res) => {
+    
+    const token = req.cookies?.RefreshToken
+    if(!token){
+        throw new ApiError(400, "Refresh token not found for user")
+    }
+
+    const decodedToken = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET)
+    if(!decodedToken){
+        throw new ApiError(501, "Something went wrong while decoding token")
+    }
+
+    const user = await User.findById(decodedToken?._id)
+    if(!user){
+        throw new ApiError(401, "No user found with these details")
+    }
+
+    if( token !== user.refreshToken ){
+        throw new ApiError(402, "User not authorize, kindly login to continue")
+    }
+    
+    const {accessToken, newRefreshToken} = await generateAccessAndRefreshTokens(user._id)
+    const options = {
+        secure : true,
+        httpOnly : true
+    }
+
+    return res.status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", newRefreshToken, options)
+    .json( new apiResponse(200, {accessToken, newRefreshToken}, "New access token has been generated." ) )
+})
+
+
+const forgetPassword = asyncHandler( async (req, res) => {
+    
+    const { email, newPassword, confirmPassword } = req.body
+    if(!newPassword){
+    if(!email){
+        throw new ApiError(400, "Please enter email to recover password")
+    }
+
+    const transporter = nodemailer.createTransport({
+        service : "gmail",
+        auth : {
+            user : "madhavv8528@gmail.com",
+            pass : process.env.GMAIL_PASS
+        }
+    })
+
+    const recoverPassword = transporter.sendMail({
+        from : "madhavv8528@gmail.com",
+        to : email,
+        subject : "Password recover email for Booking Space",
+        text : "Please click on the following link to recover your password : linkHere"
+    })
+    if(!recoverPassword){
+        throw new ApiError(400, "Something went wrong, Please enter the email again")
+    }
+}
+    const passwordRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/
+    if(passwordRegex.test(newPassword)===false){
+        throw new ApiError(400, "Please provide a password with atleast a Uppercase, a special character and a number")
+    }
+    if(newPassword !== confirmPassword){
+        throw new ApiError(400, "Password doesnt match with confirm password")
+    }
+
+    const user = await User.findOne({email})
+    
+    user.password = newPassword
+    await user.save({validateBeforeSave : false})
+
+    return res.status(200)
+    .json(200, "User password updated successfully")
+})
+
+
+
 export { registerWithOtpGenerationUser,
          loginUser,
          logout,
          getUser,
-         changePassword
+         changePassword,
+         updateAccessToken,
+         forgetPassword
  }
