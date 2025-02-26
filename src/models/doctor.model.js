@@ -82,9 +82,10 @@ const doctorSchema = new Schema({
     status : {
         type : String,
         required : true,
-        default : "Unverified"
+        default : "Unverified",
+        enum : ["Unverified", "Verified", "Rejected"]
     },
-    
+
     role : {
         type : String,
         required : true,
