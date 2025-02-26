@@ -1,31 +1,33 @@
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { User } from "../models/user.model.js";
+import { Doctor } from "../models/doctor.model.js";
 import { Otp } from "../models/otp.model.js";
 import bcrypt from "bcrypt";
 import otpgenerator from "otp-generator";
 import nodemailer from "nodemailer";
 import twilio from "twilio";
 import jwt from "jsonwebtoken";
+import cloudinaryUpload from "../utils/cloudinary.js";
 
-const generateAccessAndRefreshTokens = async (userId) => {
+
+const generateAccessAndRefreshTokens = async (doctorId) => {
     
     try {
         
-        const user = await User.findById(userId);
-        if(!user){
-            throw new ApiError(401, "No user found with this userId")
+        const doctor = await Doctor.findById(doctorId);
+        if(!doctor){
+            throw new ApiError(401, "No doctor found with this doctorId")
         }
     
-        const accessToken = await user.generateAccessToken()
-        const refreshToken = await user.generateRefreshToken()
+        const accessToken = await doctor.generateAccessToken()
+        const refreshToken = await doctor.generateRefreshToken()
         if(!accessToken || !refreshToken){
-            throw new ApiError(400, "Something went wrong while generation of the user")
+            throw new ApiError(400, "Something went wrong while generation of the doctor tokens")
         }
     
-        user.refreshToken = refreshToken
-        await user.save(
+        doctor.refreshToken = refreshToken
+        await doctor.save(
             {
                 validateBeforeSave : false,
             }
@@ -38,29 +40,23 @@ const generateAccessAndRefreshTokens = async (userId) => {
 }
 
 
-const registerWithOtpGenerationUser = asyncHandler( async (req, res) => {
+const registerDoctor = asyncHandler( async (req, res) => {
     
-    //get details from user
-    //verify those details
-    //check existing user
-    //create entry in db
-    //remove hidden fields from the response
-    //check for the successfull creation of user
-    //return res
-    
-    const { username, firstName, lastName, password, email, mobileNumber, otp } = req.body
+    const { fullName, specialization, description, charges, email, password, mobileNumber, address,
+            availability, otp } = req.body
 
     if(!otp){
 
-    if([username, firstName, lastName, password, email, mobileNumber]
-        .some((field) => 
-              { return field.trim()=== "" }))
-
-   {
-        throw new ApiError(400, "Please provide all the details to register")
-   }
+        if([fullName, specialization, description, charges, email, password, mobileNumber, address,
+            availability]
+            .some((field) => 
+                  { return field.trim()=== "" }))
     
-    const emailRegex = /^(?!\.)[a-zA-Z0-9._%+-]{1,64}@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+       {
+            throw new ApiError(400, "Please provide all the details to register as a doctor")
+       }
+
+       const emailRegex = /^(?!\.)[a-zA-Z0-9._%+-]{1,64}@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
     if(emailRegex.test(email)===false){
         throw new ApiError(400, "Please provide a valid email")
     }
@@ -75,11 +71,11 @@ const registerWithOtpGenerationUser = asyncHandler( async (req, res) => {
         throw new ApiError(400, "Please provide a password with atleast a Uppercase, a special character and a number")
     }
 
-    const existedUser = await User.findOne({
+    const existedDoctor = await Doctor.findOne({
         $or : [{email}, {mobileNumber}]
     })
-    if(existedUser){
-        throw new ApiError(402, "User already exist with this email or mobile number")
+    if(existedDoctor){
+        throw new ApiError(400, "Doctor with these details already register, kindly login")
     }
 
     const otp = otpgenerator.generate(6, {
@@ -136,33 +132,58 @@ const registerWithOtpGenerationUser = asyncHandler( async (req, res) => {
 
     return res.status(200)
     .json( new apiResponse(200, "Otp successfully sent to your email and mobile number."))
-}
-    
+
+    }
+
     const verifyOtp = await Otp.findOne( { 
         $or : [{otp}, {email}]
     })
     if(!verifyOtp){
-        //await Otp.deleteOne({otp})
-        throw new ApiError(402, "Otp is not valid, please register again.")
+         throw new ApiError(402, "Otp is not valid, please register again.")
     }
 
-    const user = await User.create({
-        username,
-        firstName,
-        lastName, 
-        password, 
-        email, 
-        mobileNumber,
-        role : "patient"
+    const pictureLocalPath = await req.files?.picture[0].path
+    const degreeLocalPath = await req.files?.degree[0].path
+    const licenceLocalPath = await req.files?.licence[0].path
+    if(!degreeLocalPath){
+        throw new ApiError(400, "Kindly provide the file to verify your doctor degree identification.")
+    }
+    if(!licenceLocalPath){
+        throw new ApiError(400, "Kindly provide the file to verify your doctor licence.")
+    }
+    if(!picture){
+        throw new ApiError(400, "Kindly provide the picture to continue.")
+    }
+
+    const degreeForVerification = await cloudinaryUpload(degreeLocalPath)
+    const licenceForVerification = await cloudinaryUpload(licenceLocalPath)
+    const picture = await cloudinaryUpload(pictureLocalPath)
+    if(!degreeForVerification){
+        throw new ApiError(400, "Something went wrong while uploading degree file.")
+    }
+    if(!licenceForVerification){
+        throw new ApiError(400, "Something went wrong while uploading licence file.")
+    }
+    if(!picture){
+        throw new ApiError(400, "Something went wrong while uploading your picture.")
+    }
+
+    const doctor = await Doctor.create({
+        fullName, specialization, description, charges, email, password, mobileNumber, address,
+        availability,
+        role : "doctor",
+        picture : picture.url,
+        degreeForVerification : degreeForVerification?.url, 
+        licenceForVerification : licenceForVerification?.url
     })
 
-    const createdUser = await User.findById(user._id).select("-password -refreshToken")
-    if(!createdUser){
-        throw new ApiError(404, "Something went wrong while registering user.")
+    const createdDoctor = await Doctor.findOne({email}).select("-password -refreshToken")
+    if(!createdDoctor){
+        throw new ApiError(400, "Something went wrong while registering the doctor.")
     }
 
     await Otp.deleteOne({otp})
-
+    
     const transporter = nodemailer.createTransport({
         service : "gmail",
         auth : {
@@ -170,30 +191,20 @@ const registerWithOtpGenerationUser = asyncHandler( async (req, res) => {
             pass : process.env.GMAIL_PASS
         }
     })
-
     const VerificationMail = await transporter.sendMail({
         from : "madhavv8528@gmail.com",
         to : verifyOtp.email,
-        subject : "Welcome on Booking Space",
-        text : "You are now verified user!"
+        subject : "Welcome on Booking Space as a doctor",
+        text : "Your verification is under process. We will soon update after the verification process based on your submitted documents."
     })
-
-    return res.status(200)
-    .json( new apiResponse(200, { createdUser, VerificationMail }, "You are successfully verified and registered"))
     
+    return res.status(200)
+    .json( new apiResponse(200, { createdDoctor, VerificationMail }, "You are successfully verified by otp and doctor identity supporting documents are now under verification."))
 })
 
 
-const loginUser = asyncHandler( async (req, res) => {
-    
-    //get email and password
-    //verify fields
-    //find user with that email
-    //if user not found make them register first
-    //check its password using bcrypt
-    //if password invalid make unauthorize request
-    //else login the user
-    //return login user instance and tokens also as cookies
+const loginDoctor = asyncHandler( async (req, res) => {
+
 
     const { email, password } = req.body
 
@@ -209,40 +220,40 @@ const loginUser = asyncHandler( async (req, res) => {
         throw new ApiError(400, "Please provide a valid email")
    }
 
-   const user = await User.findOne({email})
-   if(!user){
-        throw new ApiError(400, "No user find with this email")
+   const doctor = await Doctor.findOne({email})
+   if(!doctor){
+        throw new ApiError(400, "No doctor find with this email")
    }
    
    const validPassword = async (password) => {
-        return bcrypt.compare(password, user.password)
+        return bcrypt.compare(password, doctor.password)
    }
    if(!validPassword){
         throw new ApiError(401, "Please enter a valid password")
    }
 
-   const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id)
+   const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(doctor._id)
    const options = {
         secure : true,
         httpOnly : true
    }
 
-   const loggedInUser = await User.findById(user._id).select("-password -refreshToken")
-   if(!loggedInUser){
-        throw new ApiError(404, "Something went wrong while logging user.")
+   const loggedInDoctor = await Doctor.findById(doctor._id).select("-password -refreshToken")
+   if(!loggedInDoctor){
+        throw new ApiError(404, "Something went wrong while logging doctor.")
    }
 
    return res.status(200)
    .cookie("AccessToken", accessToken, options)
    .cookie("RefreshToken", refreshToken, options)
-   .json( new apiResponse(200, loggedInUser, "User logged in successfully") )
+   .json( new apiResponse(200, loggedInDoctor, "Doctor logged in successfully"))
 })
 
 
-const logout = asyncHandler( async (req, res) => {
+const logoutDoctor = asyncHandler( async (req, res) => {
     
-    await User.findByIdAndUpdate(
-        req.user._id,
+    await Doctor.findByIdAndUpdate(
+        req.doctor._id,
         {
            $unset : {
             refreshToken : 1
@@ -260,20 +271,20 @@ const logout = asyncHandler( async (req, res) => {
     return res.status(200)
     .clearCookie("AccessToken", options)
     .clearCookie("RefreshToken", options)
-    .json( new apiResponse(200, "User logged out successfully") )
+    .json( new apiResponse(200, "Doctor logged out successfully") )
 
 })
 
 
-const getUser = asyncHandler( async(req, res) => {
+const getDoctor = asyncHandler( async(req, res) => {
 
-    const user = await User.findById(req.user?._id).select("-password -RefreshToken")
-    if(!user){
-        throw new ApiError(402, "Kindly login to get user details")
+    const doctor = await Doctor.findById(req.doctor?._id).select("-password -RefreshToken")
+    if(!doctor){
+        throw new ApiError(402, "Kindly login to get doctor details")
     }
 
     return res.status(200)
-    .json( new apiResponse(200, user, "User details fetched successfully") )
+    .json( new apiResponse(200, doctor, "Doctor details fetched successfully") )
 })
 
 
@@ -288,17 +299,17 @@ const changePassword = asyncHandler( async (req, res) => {
         throw new ApiError(400, "Please provide a password with atleast a Uppercase, a special character and a number")
     }
 
-    if(!req.user){
+    if(!req.doctor){
         throw new ApiError(402, "Kindly login to change the password")
     }
 
-    const verifyPassword = await bcrypt.compare(currentPassword, req.user.password)
+    const verifyPassword = await bcrypt.compare(currentPassword, req.doctor.password)
     if(!verifyPassword){
         throw new ApiError(400, "Current password entered is not correct")
     }
-    const user = await User.findById(req.user?._id)
-    user.password = newPassword
-    await user.save({validateBeforeSave : false})
+    const doctor = await Doctor.findById(req.doctor?._id)
+    doctor.password = newPassword
+    await doctor.save({validateBeforeSave : false})
 
     return res.status(200)
     .json( new apiResponse(200, "New password set successfully") )
@@ -318,13 +329,13 @@ const updateAccessToken = asyncHandler( async (req, res) => {
         throw new ApiError(501, "Something went wrong while decoding token")
     }
 
-    const user = await User.findById(decodedToken?._id)
-    if(!user){
-        throw new ApiError(401, "No user found with these details")
+    const doctor = await Doctor.findById(decodedToken?._id)
+    if(!doctor){
+        throw new ApiError(401, "No doctor found with these details")
     }
 
-    if( token !== user.refreshToken ){
-        throw new ApiError(402, "User not authorize, kindly login to continue")
+    if( token !== doctor.refreshToken ){
+        throw new ApiError(402, "Doctor not authorize, kindly login to continue")
     }
     
     const {accessToken, newRefreshToken} = await generateAccessAndRefreshTokens(user._id)
@@ -374,21 +385,21 @@ const forgetPassword = asyncHandler( async (req, res) => {
         throw new ApiError(400, "Password doesnt match with confirm password")
     }
 
-    const user = await User.findOne({email})
+    const doctor = await Doctor.findOne({email})
     
-    user.password = newPassword
-    await user.save({validateBeforeSave : false})
+    doctor.password = newPassword
+    await doctor.save({validateBeforeSave : false})
 
     return res.status(200)
-    .json(200, "User password updated successfully")
+    .json(200, "Doctor password updated successfully")
 })
 
 
 
-export { registerWithOtpGenerationUser,
-         loginUser,
-         logout,
-         getUser,
+export { registerDoctor,
+         loginDoctor,
+         logoutDoctor,
+         getDoctor,
          changePassword,
          updateAccessToken,
          forgetPassword
