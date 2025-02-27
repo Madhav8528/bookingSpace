@@ -17,7 +17,7 @@ const doctorSchema = new Schema({
     },
 
     description : {
-        type : Text,
+        type : String,
         required : true,
         trim : true
     },
@@ -53,7 +53,7 @@ const doctorSchema = new Schema({
     },
 
     address : {
-        type : Text,
+        type : String,
         required : true,
         trim : true
     },
@@ -127,7 +127,7 @@ doctorSchema.methods.generateAccessToken = function (){
     )
 }
 
-userSchema.methods.generateRefreshToken = function () {
+doctorSchema.methods.generateRefreshToken = function () {
    
     const payload = {
         _id : this._id,

@@ -37,7 +37,7 @@ const generateAccessAndRefreshTokens = async (userId) => {
     }
 }
 
-
+//testing = done(success)
 const registerWithOtpGenerationUser = asyncHandler( async (req, res) => {
     
     //get details from user
@@ -183,7 +183,7 @@ const registerWithOtpGenerationUser = asyncHandler( async (req, res) => {
     
 })
 
-
+//testing = done(success)
 const loginUser = asyncHandler( async (req, res) => {
     
     //get email and password
@@ -214,10 +214,8 @@ const loginUser = asyncHandler( async (req, res) => {
         throw new ApiError(400, "No user find with this email")
    }
    
-   const validPassword = async (password) => {
-        return bcrypt.compare(password, user.password)
-   }
-   if(!validPassword){
+   const validPassword = await bcrypt.compare(password, user.password)
+   if(validPassword === false){
         throw new ApiError(401, "Please enter a valid password")
    }
 
@@ -238,7 +236,7 @@ const loginUser = asyncHandler( async (req, res) => {
    .json( new apiResponse(200, loggedInUser, "User logged in successfully") )
 })
 
-
+//testing = done(success)
 const logout = asyncHandler( async (req, res) => {
     
     await User.findByIdAndUpdate(
@@ -264,7 +262,7 @@ const logout = asyncHandler( async (req, res) => {
 
 })
 
-
+//testing = done(success)
 const getUser = asyncHandler( async(req, res) => {
 
     const user = await User.findById(req.user?._id).select("-password -RefreshToken")
@@ -276,7 +274,7 @@ const getUser = asyncHandler( async(req, res) => {
     .json( new apiResponse(200, user, "User details fetched successfully") )
 })
 
-
+//testing = done(success)
 const changePassword = asyncHandler( async (req, res) => {
     
     const { currentPassword, newPassword } = req.body
@@ -291,12 +289,13 @@ const changePassword = asyncHandler( async (req, res) => {
     if(!req.user){
         throw new ApiError(402, "Kindly login to change the password")
     }
+    const user = await User.findById(req.user?._id)
 
-    const verifyPassword = await bcrypt.compare(currentPassword, req.user.password)
+    const verifyPassword = await bcrypt.compare(currentPassword, user.password)
     if(!verifyPassword){
         throw new ApiError(400, "Current password entered is not correct")
     }
-    const user = await User.findById(req.user?._id)
+    
     user.password = newPassword
     await user.save({validateBeforeSave : false})
 
@@ -305,7 +304,7 @@ const changePassword = asyncHandler( async (req, res) => {
 
 })
 
-
+//testing = done(success)
 const updateAccessToken = asyncHandler( async (req, res) => {
     
     const token = req.cookies?.RefreshToken
@@ -327,7 +326,8 @@ const updateAccessToken = asyncHandler( async (req, res) => {
         throw new ApiError(402, "User not authorize, kindly login to continue")
     }
     
-    const {accessToken, newRefreshToken} = await generateAccessAndRefreshTokens(user._id)
+    const {accessToken, refreshToken} = await generateAccessAndRefreshTokens(user._id)
+    
     const options = {
         secure : true,
         httpOnly : true
@@ -335,15 +335,15 @@ const updateAccessToken = asyncHandler( async (req, res) => {
 
     return res.status(200)
     .cookie("accessToken", accessToken, options)
-    .cookie("refreshToken", newRefreshToken, options)
-    .json( new apiResponse(200, {accessToken, newRefreshToken}, "New access token has been generated." ) )
+    .cookie("refreshToken", refreshToken, options)
+    .json( new apiResponse(200, {accessToken, refreshToken}, "New access token has been generated." ) )
 })
 
-
+//testing = done(success)
 const forgetPassword = asyncHandler( async (req, res) => {
     
     const { email, newPassword, confirmPassword } = req.body
-    if(!newPassword){
+    if(!newPassword && !confirmPassword){
     if(!email){
         throw new ApiError(400, "Please enter email to recover password")
     }
@@ -370,17 +370,24 @@ const forgetPassword = asyncHandler( async (req, res) => {
     if(passwordRegex.test(newPassword)===false){
         throw new ApiError(400, "Please provide a password with atleast a Uppercase, a special character and a number")
     }
+
+    const user = await User.findOne({email})
+
     if(newPassword !== confirmPassword){
         throw new ApiError(400, "Password doesnt match with confirm password")
     }
-
-    const user = await User.findOne({email})
+    const samePassword = await bcrypt.compare(newPassword, user.password)
+    //console.log(samePassword);
+    
+    if(samePassword){
+        throw new ApiError(400, "Password match with previous password, please enter a new one.")
+    }
     
     user.password = newPassword
     await user.save({validateBeforeSave : false})
 
     return res.status(200)
-    .json(200, "User password updated successfully")
+    .json(200, "User password updated successfully, you can now login")
 })
 
 
