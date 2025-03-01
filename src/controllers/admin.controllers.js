@@ -1,12 +1,13 @@
-import { Doctor } from "../models/doctor.model";
-import { User } from "../models/user.model";
-import { asyncHandler } from "../utils/asyncHandler";
-import { ApiError } from "../utils/apiError";
-import { apiResponse } from "../utils/apiResponse";
+import { Doctor } from "../models/doctor.model.js";
+import { User } from "../models/user.model.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { ApiError } from "../utils/apiError.js";
+import { apiResponse } from "../utils/apiResponse.js";
 import nodemailer from "nodemailer";
 
 
-const doctorRequest = asyncHandler( async ( _ , res) => {
+//tested = Done(success)
+const doctorsRequest = asyncHandler( async ( _ , res) => {
     
     const unverifiedDoctors = await Doctor.find({
         status : "Unverified"
@@ -19,7 +20,8 @@ const doctorRequest = asyncHandler( async ( _ , res) => {
     .json( new apiResponse(200, unverifiedDoctors, "Doctor list for verification successfully fetched.") )
 })
 
-const verifyDoctor = asyncHandler( async (req, res) => {
+//tested = Done(success)
+const doctorDetails = asyncHandler( async (req, res) => {
     
     const { doctorId } = req.params
     if(!doctorId){
@@ -35,6 +37,24 @@ const verifyDoctor = asyncHandler( async (req, res) => {
     const licence = doctor.licenceForVerification
     if(!degree || !licence){
         throw new ApiError(401, "unable to fetch verification document for this doctor.")
+    }
+
+    res.status(200)
+    .json( new apiResponse(200, { degree, licence }, "Doctor's degree and licence fetched, kindly verify."))
+})
+
+//tested = Done(success)
+const verifyDoctor = asyncHandler( async (req, res) => {
+    
+    
+    const { doctorId } = req.params
+    if(!doctorId){
+        throw new ApiError(400, "Something went wrong with the url.")
+    }
+
+    const doctor = await Doctor.findById(doctorId)
+    if(!doctor){
+        throw new ApiError(402, "No doctor found with this doctorId")
     }
 
     doctor.status = "Verified"
@@ -62,7 +82,7 @@ const verifyDoctor = asyncHandler( async (req, res) => {
     .json( new apiResponse(200, doctor, "Doctor has been verified now") )
 })
 
-
+//tested = Done(success)
 const rejectDoctor = asyncHandler( async (req, res) => {
     
     const { doctorId } = req.params
@@ -73,12 +93,6 @@ const rejectDoctor = asyncHandler( async (req, res) => {
     const doctor = await Doctor.findById(doctorId)
     if(!doctor){
         throw new ApiError(402, "No doctor found with this doctorId")
-    }
-
-    const degree = doctor.degreeForVerification
-    const licence = doctor.licenceForVerification
-    if(!degree || !licence){
-        throw new ApiError(401, "unable to fetch verification document for this doctor.")
     }
 
     doctor.status = "Rejected"
@@ -107,7 +121,8 @@ const rejectDoctor = asyncHandler( async (req, res) => {
 
 })
 
-export { doctorRequest,
+export { doctorsRequest,
+         doctorDetails,
          verifyDoctor,
          rejectDoctor
 }
