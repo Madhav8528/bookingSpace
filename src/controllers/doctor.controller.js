@@ -8,7 +8,7 @@ import otpgenerator from "otp-generator";
 import nodemailer from "nodemailer";
 import twilio from "twilio";
 import jwt from "jsonwebtoken";
-import cloudinaryUpload from "../utils/cloudinary.js";
+import { cloudinaryUpload } from "../utils/cloudinary.js";
 
 
 const generateAccessAndRefreshTokens = async (doctorId) => {
@@ -39,7 +39,7 @@ const generateAccessAndRefreshTokens = async (doctorId) => {
     }
 }
 
-
+//tested = Done(success)
 const registerDoctor = asyncHandler( async (req, res) => {
     
     const { fullName, specialization, description, charges, email, password, mobileNumber, address,
@@ -48,15 +48,13 @@ const registerDoctor = asyncHandler( async (req, res) => {
     if(!otp){
 
         if([fullName, specialization, description, charges, email, password, mobileNumber, address,
-            availability]
-            .some((field) => 
-                  { return field.trim()=== "" }))
-    
+            availability].some((field) => { return String(field).trim() === "" }))
        {
             throw new ApiError(400, "Please provide all the details to register as a doctor")
        }
-
-       const emailRegex = /^(?!\.)[a-zA-Z0-9._%+-]{1,64}@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+       console.log("email :", email)
+       console.log("mobile no. :", mobileNumber)
+    const emailRegex = /^(?!\.)[a-zA-Z0-9._%+-]{1,64}@(?!-)[a-zA-Z0-9-]+(\.[a-zA-Z]{2,})+$/
     if(emailRegex.test(email)===false){
         throw new ApiError(400, "Please provide a valid email")
     }
@@ -151,7 +149,7 @@ const registerDoctor = asyncHandler( async (req, res) => {
     if(!licenceLocalPath){
         throw new ApiError(400, "Kindly provide the file to verify your doctor licence.")
     }
-    if(!picture){
+    if(!pictureLocalPath){
         throw new ApiError(400, "Kindly provide the picture to continue.")
     }
 
@@ -172,7 +170,7 @@ const registerDoctor = asyncHandler( async (req, res) => {
         fullName, specialization, description, charges, email, password, mobileNumber, address,
         availability,
         role : "doctor",
-        picture : picture.url,
+        picture : picture?.url,
         degreeForVerification : degreeForVerification?.url, 
         licenceForVerification : licenceForVerification?.url
     })
@@ -202,7 +200,7 @@ const registerDoctor = asyncHandler( async (req, res) => {
     .json( new apiResponse(200, { createdDoctor, VerificationMail }, "You are successfully verified by otp and doctor identity supporting documents are now under verification."))
 })
 
-
+//tested = Done(success)
 const loginDoctor = asyncHandler( async (req, res) => {
 
 
@@ -225,9 +223,7 @@ const loginDoctor = asyncHandler( async (req, res) => {
         throw new ApiError(400, "No doctor find with this email")
    }
    
-   const validPassword = async (password) => {
-        return bcrypt.compare(password, doctor.password)
-   }
+   const validPassword = await bcrypt.compare(password, doctor.password)
    if(!validPassword){
         throw new ApiError(401, "Please enter a valid password")
    }
@@ -249,7 +245,7 @@ const loginDoctor = asyncHandler( async (req, res) => {
    .json( new apiResponse(200, loggedInDoctor, "Doctor logged in successfully"))
 })
 
-
+//tested = Done(success)
 const logoutDoctor = asyncHandler( async (req, res) => {
     
     await Doctor.findByIdAndUpdate(
@@ -275,7 +271,7 @@ const logoutDoctor = asyncHandler( async (req, res) => {
 
 })
 
-
+//tested = Done(success)
 const getDoctor = asyncHandler( async(req, res) => {
 
     const doctor = await Doctor.findById(req.doctor?._id).select("-password -RefreshToken")
@@ -287,7 +283,7 @@ const getDoctor = asyncHandler( async(req, res) => {
     .json( new apiResponse(200, doctor, "Doctor details fetched successfully") )
 })
 
-
+//tested = Done(success)
 const changePassword = asyncHandler( async (req, res) => {
     
     const { currentPassword, newPassword } = req.body
@@ -302,12 +298,12 @@ const changePassword = asyncHandler( async (req, res) => {
     if(!req.doctor){
         throw new ApiError(402, "Kindly login to change the password")
     }
-
-    const verifyPassword = await bcrypt.compare(currentPassword, req.doctor.password)
+    const doctor = await Doctor.findById(req.doctor?._id)
+    const verifyPassword = await bcrypt.compare(currentPassword, doctor.password)
     if(!verifyPassword){
         throw new ApiError(400, "Current password entered is not correct")
     }
-    const doctor = await Doctor.findById(req.doctor?._id)
+    
     doctor.password = newPassword
     await doctor.save({validateBeforeSave : false})
 
@@ -316,7 +312,7 @@ const changePassword = asyncHandler( async (req, res) => {
 
 })
 
-
+//tested = Done(success)
 const updateAccessToken = asyncHandler( async (req, res) => {
     
     const token = req.cookies?.RefreshToken
@@ -338,7 +334,7 @@ const updateAccessToken = asyncHandler( async (req, res) => {
         throw new ApiError(402, "Doctor not authorize, kindly login to continue")
     }
     
-    const {accessToken, newRefreshToken} = await generateAccessAndRefreshTokens(user._id)
+    const {accessToken, refreshToken} = await generateAccessAndRefreshTokens(doctor._id)
     const options = {
         secure : true,
         httpOnly : true
@@ -346,15 +342,15 @@ const updateAccessToken = asyncHandler( async (req, res) => {
 
     return res.status(200)
     .cookie("accessToken", accessToken, options)
-    .cookie("refreshToken", newRefreshToken, options)
-    .json( new apiResponse(200, {accessToken, newRefreshToken}, "New access token has been generated." ) )
+    .cookie("refreshToken", refreshToken, options)
+    .json( new apiResponse(200, {accessToken, refreshToken}, "New access token has been generated." ) )
 })
 
-
+//tested = Done(success)
 const forgetPassword = asyncHandler( async (req, res) => {
     
     const { email, newPassword, confirmPassword } = req.body
-    if(!newPassword){
+    if(!newPassword && !confirmPassword){
     if(!email){
         throw new ApiError(400, "Please enter email to recover password")
     }
@@ -384,9 +380,12 @@ const forgetPassword = asyncHandler( async (req, res) => {
     if(newPassword !== confirmPassword){
         throw new ApiError(400, "Password doesnt match with confirm password")
     }
-
-    const doctor = await Doctor.findOne({email})
     
+    const doctor = await Doctor.findOne({email})
+    if(newPassword === doctor.password){
+        throw new ApiError(401, "This password match with current password, please use a new password then previous one.")
+    }
+
     doctor.password = newPassword
     await doctor.save({validateBeforeSave : false})
 
