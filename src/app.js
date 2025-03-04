@@ -17,9 +17,11 @@ app.use(express.urlencoded({ extended : true, limit : "20kb" }))
 import userRoutes from "./routes/user.routes.js";
 import doctorRoutes from "./routes/doctor.routes.js"
 import adminRoutes from "./routes/admin.routes.js"
+import appointmentRoutes from "./routes/appointment.routes.js"
 
 app.use("/api/v1/patient", userRoutes)
 app.use("/api/v1/doctor", doctorRoutes)
 app.use("/api/v1/admin", adminRoutes)
+app.use("/api/v1/patient", appointmentRoutes)
 
 export { app }

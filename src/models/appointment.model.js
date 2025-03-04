@@ -34,7 +34,7 @@ const appointmentSchema = new Schema({
     },
 
     reasonForVisit : {
-        type : Text,
+        type : String,
         trim : true,
     },
 
@@ -63,4 +63,4 @@ const appointmentSchema = new Schema({
 })
 
 
-export default Appointment = mongoose.model("Appointment", appointmentSchema)
+export const Appointment = mongoose.model("Appointment", appointmentSchema)
