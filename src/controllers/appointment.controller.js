@@ -48,18 +48,37 @@ function pagination(model) {
 //testing = Done(Success)
 //when user click on book an appointment and list of doctor is shown
 //can add filters also after
-const listDoctors = asyncHandler( async (req, res) => {
+const listDoctors = asyncHandler( async (_, res) => {
     
     //this will get list of user and paginate also as queried
     //await pagination(Doctor)
     //console.log(res.pagination);
+    const doctors = res.pagination.result
+    console.log(doctors);
+    
+    const verifiedDoctors = doctors.filter(doctor => doctor.status === "Verified")
+
+
     res.status(200)
-    .json( new apiResponse(200, res.pagination, "Doctors data fetched successfully.") )
+    .json( new apiResponse(200, verifiedDoctors, "Doctors data fetched successfully.") )
 })
 
 
+//testing = Done(Success)
 const breifProfileDoctor = asyncHandler( async (req, res) => {
     
+    const { doctorId } = req.params
+    if(!doctorId){
+        throw new ApiError(400, "Something went wrong with the url")
+    }
+
+    const doctor = await Doctor.findById(doctorId).select("-password -refreshToken")
+    if(!doctor){
+        throw new ApiError(401, "Something went wrong while finding the doctor from db")
+    }
+
+    res.status(200)
+    .json( new apiResponse(200, doctor, "Doctor details fetched successfully"))
 })
 
 
@@ -72,4 +91,5 @@ const bookAppointment = asyncHandler( async (req, res) => {
 
 export { listDoctors,
          pagination,
-         breifProfileDoctor }
+         breifProfileDoctor,
+         bookAppointment }
