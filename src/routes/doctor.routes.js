@@ -3,7 +3,8 @@ import { changePassword, forgetPassword, getDoctor,
          loginDoctor,
          logoutDoctor,
          registerDoctor, 
-         updateAccessToken} from "../controllers/doctor.controller.js";
+         updateAccessToken,
+         updateDoctorAvailability} from "../controllers/doctor.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { verifyJwtDoctor } from "../middlewares/auth.middleware.js";
 
@@ -33,5 +34,6 @@ router.route("/get-doctor").get(verifyJwtDoctor, getDoctor)
 router.route("/change-password").post(verifyJwtDoctor, changePassword)
 router.route("/refresh-access-token").post(verifyJwtDoctor, updateAccessToken)
 router.route("/forgot-password").post(forgetPassword)
+router.route("/update-doctor-availability").post(updateDoctorAvailability)
 
 export default router;

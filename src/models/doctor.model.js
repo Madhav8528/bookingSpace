@@ -64,9 +64,34 @@ const doctorSchema = new Schema({
     },
 
     availability : {
-        type : String,
-        required : true,
-        trim : true
+        Monday : {
+            type : Boolean,
+            default : false
+        },
+        Tuesday : {
+            type : Boolean,
+            default : false
+        },
+        Wednesday : {
+            type : Boolean,
+            default : false
+        },
+        Thrusday : {
+            type : Boolean,
+            default : false
+        },
+        Friday : {
+            type : Boolean,
+            default : false
+        },
+        Saturday : {
+            type : Boolean,
+            default : false
+        },
+        Sunday : {
+            type : Boolean,
+            default : false
+        },
     },
 
     degreeForVerification : {

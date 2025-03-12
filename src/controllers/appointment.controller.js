@@ -82,6 +82,23 @@ const breifProfileDoctor = asyncHandler( async (req, res) => {
 })
 
 
+const checkDoctorAvailability = asyncHandler( async (req, res) => {
+    
+    const { doctorId } = req.params
+    if(!doctorId){
+        throw new ApiError(501, "The request made cannot be completed due to url error")
+    }
+
+    const doctor = await Doctor.findById(doctorId)
+    if(!doctor){
+        throw new ApiError(402, "No account found with this doctorId.")
+    }
+
+    return res.status(200)
+    .json( new apiResponse(200, doctor.availability, "Doctor availability fetched successfully.") )
+})
+
+
 const bookAppointment = asyncHandler( async (req, res) => {
     
     
@@ -92,4 +109,5 @@ const bookAppointment = asyncHandler( async (req, res) => {
 export { listDoctors,
          pagination,
          breifProfileDoctor,
-         bookAppointment }
+         bookAppointment,
+         checkDoctorAvailability }

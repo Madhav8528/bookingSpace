@@ -394,6 +394,28 @@ const forgetPassword = asyncHandler( async (req, res) => {
 })
 
 
+const updateDoctorAvailability = asyncHandler( async (req, res) => {
+    
+    const { email, availability } = req.body
+    if(!email || !availability){
+        throw new ApiError(400, "Kindly provide details to update availability.")
+    }
+
+    const updatedDoctor = await Doctor.findOneAndUpdate(
+        {email},
+        {availability},
+        {
+            new : true
+        }
+    )
+    if(!updatedDoctor){
+        throw new ApiError(500, "Something went wrong while updating availability")
+    }
+
+    return res.status(200)
+    .json( new apiResponse(200, updatedDoctor.availability, "Doctor availability updated successfully.") )
+
+})
 
 export { registerDoctor,
          loginDoctor,
@@ -401,5 +423,6 @@ export { registerDoctor,
          getDoctor,
          changePassword,
          updateAccessToken,
-         forgetPassword
+         forgetPassword,
+         updateDoctorAvailability
  }
