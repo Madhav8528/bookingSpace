@@ -66,31 +66,62 @@ const doctorSchema = new Schema({
     availability : {
         Monday : {
             type : Boolean,
-            default : false
+            default : false,
         },
         Tuesday : {
             type : Boolean,
-            default : false
+            default : false,
         },
         Wednesday : {
             type : Boolean,
-            default : false
+            default : false,
         },
         Thrusday : {
             type : Boolean,
-            default : false
+            default : false,
         },
         Friday : {
             type : Boolean,
-            default : false
+            default : false,
         },
         Saturday : {
             type : Boolean,
-            default : false
+            default : false,
         },
         Sunday : {
             type : Boolean,
-            default : false
+            default : false,
+        },
+    },
+
+    appointmentCounter : {
+        Monday : {
+            type : Number,
+            default : 0,
+        },
+        Tuesday : {
+            type : Number,
+            default : 0,
+        },
+        Wednesday : {
+            type : Number,
+            default : 0,
+        },
+        Thrusday : {
+            type : Number,
+            default : 0,
+        },
+        Friday : {
+            type : Number,
+            default : 0,
+        },
+        Saturday : {
+            type : Number,
+            default : 0,
+        },
+        Sunday : {
+            type : Number,
+            default : 0,
         },
     },
 

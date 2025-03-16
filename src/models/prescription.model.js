@@ -14,21 +14,19 @@ const prescriptionSchema = new Schema({
         ref : "Doctor",
     },
 
-    appointmentDetails : {
-        type : Schema.Types.ObjectId,
-        ref : "Appointment"
-    },
-
     date : {
         type : Date,
         required : true
     },
 
-    //files implement
+    file : {
+        type : String,
+        required : true
+    }
 }, {
     timestamps : true
 })
 
 
 
-export default Prescription = mongoose.model("Prescription", prescriptionSchema)
+export const Prescription = mongoose.model("Prescription", prescriptionSchema)

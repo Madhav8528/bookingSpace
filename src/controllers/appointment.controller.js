@@ -98,10 +98,19 @@ const checkDoctorAvailability = asyncHandler( async (req, res) => {
     .json( new apiResponse(200, doctor.availability, "Doctor availability fetched successfully.") )
 })
 
-
+//apply jwt auth middleware
 const bookAppointment = asyncHandler( async (req, res) => {
     
-    
+    const { paymentId, doctorId } = req.params
+
+    if(!paymentId){
+    const { user } = req.user
+    if(!user){
+        throw new ApiError(402, "Please login or register to continue.")
+    }
+
+    const data = {}
+    }
 })
 
 
