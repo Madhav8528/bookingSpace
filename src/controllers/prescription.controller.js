@@ -53,6 +53,30 @@ const uploadPrescription = asyncHandler( async (req, res) => {
     .json( new apiResponse(200, prescription, "Prescription uploaded successfully."))
 })
 
+//tesing = Done(success)
+const getAllPrescription = asyncHandler( async (req, res) => {
+    
+    if(!req?.user){
+        throw new ApiError(401, "Kindly login to view your prescription.")
+    }
+
+    const userId = req?.user._id
+    //console.log(userId);
+    
+    const prescriptionList = await Prescription.find({
+        userDetails : userId
+    })
+    //console.log(prescriptionList);
+    
+    if(!prescriptionList){
+        throw new ApiError(400, "No prescription found for this user.")
+    }
+
+    return res.status(200)
+    .json( new apiResponse(200, prescriptionList, "All the user prescription fetched successfully.") )
+})
 
 
-export { uploadPrescription }
+export { uploadPrescription,
+         getAllPrescription
+       }
