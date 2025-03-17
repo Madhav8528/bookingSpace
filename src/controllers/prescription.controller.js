@@ -77,6 +77,40 @@ const getAllPrescription = asyncHandler( async (req, res) => {
 })
 
 
+const getPrescription = asyncHandler( async (req, res) => {
+    
+    const { prescriptionId } = req.params
+    if(!prescriptionId){
+        throw new ApiError(500, "Something went wrong with the url.")
+    }
+
+    const prescription = await Prescription.findById(prescriptionId)
+    if(!prescription){
+        throw new ApiError(400, "No prescription found with this prescriptionId.")
+    }
+
+    return res.status(200)
+    .json( new apiResponse(200, prescription, "Prescription fetched successfully.") )
+})
+
+
+const deletePrescription = asyncHandler( async (req, res) => {
+    
+    const { prescriptionId } = req.params
+    if(!prescriptionId){
+        throw new ApiError(500, "Something went wrong with the url.")
+    }
+
+    await Prescription.findByIdAndDelete(prescriptionId)
+    //console.log(deletePrescription);
+    
+    return res.status(200)
+    .json( new apiResponse(200, "Prescription successfully deleted.") )
+})
+
+
 export { uploadPrescription,
-         getAllPrescription
+         getAllPrescription,
+         getPrescription,
+         deletePrescription
        }
