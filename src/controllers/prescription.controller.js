@@ -76,7 +76,7 @@ const getAllPrescription = asyncHandler( async (req, res) => {
     .json( new apiResponse(200, prescriptionList, "All the user prescription fetched successfully.") )
 })
 
-
+//tesing = Done(success)
 const getPrescription = asyncHandler( async (req, res) => {
     
     const { prescriptionId } = req.params
@@ -93,7 +93,7 @@ const getPrescription = asyncHandler( async (req, res) => {
     .json( new apiResponse(200, prescription, "Prescription fetched successfully.") )
 })
 
-
+//tesing = Done(success)
 const deletePrescription = asyncHandler( async (req, res) => {
     
     const { prescriptionId } = req.params

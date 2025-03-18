@@ -1,12 +1,18 @@
-import { v2 as cloudinary } from "cloudinary"
-import fs from "fs"
+import { v2 as cloudinary } from "cloudinary";
+import fs from "fs";
+import dotenv from "dotenv";
+
+
+dotenv.config({
+    src : "../.env"
+})
 
 
 
 cloudinary.config({
   cloud_name: 'dqes4jlnf',
   api_key: '189267991227771',
-  api_secret: 'CSspXyANeW7nwiDmKPHYgBvJWZk',
+  api_secret: process.env.CLOUDINARY_API_SECRET,
   secure: true,
 });
 

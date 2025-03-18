@@ -8,11 +8,11 @@ const medicalRecordSchema = new Schema({
         ref : "User",
         required : true
     },
-
-    prescriptionDetails : {
-        type : Schema.Types.ObjectId,
-        ref : "Prescription"
-    },
+    //after completion of appointment controller
+    // prescriptionDetails : {
+    //     type : Schema.Types.ObjectId,
+    //     ref : "Prescription"
+    // },
 
     Date : {
         type : Date,
@@ -23,16 +23,19 @@ const medicalRecordSchema = new Schema({
         type : Schema.Types.ObjectId,
         ref : "Doctor",
     },
+    //after completion of appointment controller
+    // appointmentDetails : {
+    //     type : Schema.Types.ObjectId,
+    //     ref : "Appointment"
+    // },
 
-    appointmentDetails : {
-        type : Schema.Types.ObjectId,
-        ref : "Appointment"
-    },
-
-    //file array implement
+    medicalFiles : {
+        type : String,
+        required : true
+    }
 }, {
     timestamps : true
 })
 
 
-export default MedicalRecord = mongoose.model("MedicalRecord", medicalRecordSchema)
+export const MedicalRecord = mongoose.model("MedicalRecord", medicalRecordSchema)
