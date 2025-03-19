@@ -24,7 +24,6 @@ const appointmentSchema = new Schema({
     queueNo : {
         type : Number,
         required : true,
-        trim : true
     },
 
     appointmentStatus : {
