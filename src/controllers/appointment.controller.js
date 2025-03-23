@@ -7,6 +7,8 @@ import { User } from "../models/user.model.js";
 import paginate from "mongoose-paginate-v2";
 import { Prescription } from "../models/prescription.model.js";
 import { MedicalRecord } from "../models/medicalRecord.model.js";
+import Razorpay from "razorpay";
+import crypto from "crypto";
 
 //a fuction to paginate result when required, can also use mongoose aggregate-paginate library
 function pagination(model) {
@@ -105,15 +107,12 @@ const checkDoctorAvailability = asyncHandler( async (req, res) => {
 const bookAppointment = asyncHandler( async (req, res) => {
     
     const { reasonForVisit, timeSlot } = req.body
-    const { paymentId, doctorId } = req.params
-
-    if(!paymentId){
+    const { doctorId } = req.params
+    
     const { user } = req.user
     if(!user){
         throw new ApiError(402, "Please login or register to continue.")
     }
-
-    const data = {}
 
     const date = new Date(req.body.date)
     if(isNaN(date)){
@@ -159,21 +158,116 @@ const bookAppointment = asyncHandler( async (req, res) => {
             { userDetails : user._id }
         ]
     })
+    if(!prescription){
+        throw new ApiError(400, "No prescription found for this user.")
+    }
+
     const medicalRecord = await MedicalRecord.find({
         $and : [
             { doctorDetails : doctorId },
             { userDetails : user._id }
         ] 
     })
-
-
+    if(!medicalRecord){
+        throw new ApiError(400, "No medical record found for this user.")
     }
+
+    const appointment = await Appointment.create({
+
+        userDetails : user._id,
+        doctorDetails : doctorId,
+        queueNo : queueNo,
+        appointmentStatus : "pending",
+        reasonForVisit : reasonForVisit,
+        prescriptionDetails : prescription._id,
+        medicalRecordDetails : medicalRecord._id,
+        date : date,
+        timeSlot : timeSlot
+
+    })
+    if(!appointment){
+        throw new ApiError(400, "Something went wrong while creating appointment db instance.")
+    }
+
+    return res.status(201)
+    .json( new apiResponse(201, appointment, "Appointment details submitted, kindly proceed with payments.") )
+
 })
 
+const razorpay = new Razorpay({
+    key_id : process.env.RAZORPAY_API_KEY_ID,
+    key_secret : process.env.RAZORPAY_API_SECRET
+})
+
+const createPaymentOrder = asyncHandler( async (req, res) => {
+    
+    const { appointmentId } = req.params
+    if(!appointmentId){
+        throw new ApiError(400, "Something went wrong with the url.")
+    }
+
+    const appointment = await Appointment.findById(appointmentId)
+    if(!appointment){
+        throw new ApiError(400, "Something went wrong while fetching appointment.")
+    }
+    
+    const doctor = await Doctor.findById(appointment.doctorDetails)
+    if(!doctor){
+        throw new ApiError(400, "Something went wrong while fetching doctor.")
+    }
+
+    const data = {}
+    data.appointmentId = appointmentId
+    data.date = appointment.date
+    data.timeSlot = timeSlot
+    data.queueNo = queueNo
+    data.doctorName = doctor.fullName
+    data.charges = doctor.charges
+
+    const options = {
+        amount : amount*100, //as in INR currency amount subunits in paises so to convert to rupees
+        currency : "INR",
+        receipt: `order_recieptId_${appointment._id}`
+    }
+
+   const order = razorpay.orders.create(options)
+   if(!order){
+        throw new ApiError(400, "Sommething went wrong while creating razorpay order.")
+   }
+
+   return res.status(201)
+   .json( new apiResponse(200, {data, order}, "Order created successfully, redirecting to payment page.") )
+})
+
+
+const verifyPayment = asyncHandler( async (req, res) => {
+    
+    const { order_id, payment_id, signature } = req.body
+    if(!order_id || !payment_id || !signature){
+        throw new ApiError(500, "Something went wrong to get details from body.")
+    }
+
+    const generatedToken = crypto.createHmac("sha256", process.env.RAZORPAY_API_SECRET)
+                                 .update(`${order_id} | ${payment_id}`)
+                                 .digest("hex")
+    if(!generatedToken){
+        throw new ApiError(500, "Something went wrong while creating token to verify signature.")
+    }
+
+    if(generatedToken !== signature){
+        throw new ApiError(402, "Payment failed, kindly retry.")
+    }
+
+
+                
+})
 
 
 export { listDoctors,
          pagination,
          breifProfileDoctor,
          bookAppointment,
-         checkDoctorAvailability }
+         checkDoctorAvailability,
+         createPaymentOrder,
+         verifyPayment
+       }

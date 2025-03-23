@@ -1,13 +1,7 @@
-import mongoose, {mongo, Schema} from "mongoose";
+import mongoose, {Schema} from "mongoose";
 
 
 const paymentSchema = new Schema({
-
-    userDetails : {
-        type : Schema.Types.ObjectId,
-        ref : "User",
-        required : true
-    },
 
     appointmentDetails : {
         type : Schema.Types.ObjectId,

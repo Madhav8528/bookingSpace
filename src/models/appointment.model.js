@@ -18,7 +18,6 @@ const appointmentSchema = new Schema({
     paymentDetails : {
         type : Schema.Types.ObjectId,
         ref : "Payment",
-        required : true
     },
 
     queueNo : {
