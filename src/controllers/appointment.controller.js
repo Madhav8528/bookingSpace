@@ -9,6 +9,7 @@ import { Prescription } from "../models/prescription.model.js";
 import { MedicalRecord } from "../models/medicalRecord.model.js";
 import Razorpay from "razorpay";
 import crypto from "crypto";
+import { Payment } from "../models/payment.model.js";
 
 //a fuction to paginate result when required, can also use mongoose aggregate-paginate library
 function pagination(model) {
@@ -86,7 +87,7 @@ const breifProfileDoctor = asyncHandler( async (req, res) => {
     .json( new apiResponse(200, doctor, "Doctor details fetched successfully"))
 })
 
-
+//testing = Done(Success)
 const checkDoctorAvailability = asyncHandler( async (req, res) => {
     
     const { doctorId } = req.params
@@ -104,29 +105,36 @@ const checkDoctorAvailability = asyncHandler( async (req, res) => {
 })
 
 //apply jwt auth middleware
+//testing = Done(Success)
 const bookAppointment = asyncHandler( async (req, res) => {
     
+    //time slot will be taken as string from UI.
     const { reasonForVisit, timeSlot } = req.body
     const { doctorId } = req.params
     
-    const { user } = req.user
-    if(!user){
+    const userId = req.user._id
+    if(!userId){
         throw new ApiError(402, "Please login or register to continue.")
     }
 
     const date = new Date(req.body.date)
+    const day = date.getDay()
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
     if(isNaN(date)){
         throw new ApiError(400, "Invalid date format, please provide date as MM/DD/YYYY.")
     }
-    const day = date.getDay()
-
+    //console.log(doctorId);
+    
     const doctor = await Doctor.findById(doctorId)
-    if(doctor){
+    if(!doctor){
         throw new ApiError(400, "Doctor can't be fetched from the db, check url.")
     }
+    //console.log(day);
+    
     let checkDayAvailability = null
     for(let i in doctor.availability){
-        if(i === day){
+        if(i === days[day]){
             checkDayAvailability = doctor.availability[i]
         }
     }
@@ -138,12 +146,12 @@ const bookAppointment = asyncHandler( async (req, res) => {
     if(checkDayAvailability === false){
         throw new ApiError(400, "Doctor is'nt available for this day kindly check availability first.")
     }
+    //console.log(checkDayAvailability)
 
     let currentCounter = null
-    const { appointmentCounter } = doctor.appointmentCounter
-    for( let i in appointmentCounter){
-        if( i === day ){
-            currentCounter = appointmentCounter[i]
+    for( let i in doctor.appointmentCounter){
+        if( i === days[day] ){
+            currentCounter = doctor.appointmentCounter[i]
         }
     }
     if(currentCounter === null){
@@ -151,39 +159,42 @@ const bookAppointment = asyncHandler( async (req, res) => {
     }
 
     const queueNo = currentCounter + 1
-
+    
     const prescription = await Prescription.find({
         $and : [
             { doctorDetails : doctorId },
-            { userDetails : user._id }
+            { userDetails : userId }
         ]
     })
     if(!prescription){
         throw new ApiError(400, "No prescription found for this user.")
     }
+    //console.log(prescription);
+    
 
     const medicalRecord = await MedicalRecord.find({
         $and : [
             { doctorDetails : doctorId },
-            { userDetails : user._id }
+            { userDetails : userId }
         ] 
     })
     if(!medicalRecord){
         throw new ApiError(400, "No medical record found for this user.")
     }
+    //console.log(medicalRecord);
+    
 
     const appointment = await Appointment.create({
 
-        userDetails : user._id,
+        userDetails : userId,
         doctorDetails : doctorId,
         queueNo : queueNo,
         appointmentStatus : "pending",
         reasonForVisit : reasonForVisit,
-        prescriptionDetails : prescription._id,
-        medicalRecordDetails : medicalRecord._id,
+        prescriptionDetails : prescription[0]._id,
+        medicalRecordDetails : medicalRecord[0]._id,
         date : date,
         timeSlot : timeSlot
-
     })
     if(!appointment){
         throw new ApiError(400, "Something went wrong while creating appointment db instance.")
@@ -199,6 +210,7 @@ const razorpay = new Razorpay({
     key_secret : process.env.RAZORPAY_API_SECRET
 })
 
+//testing = Done(Success)
 const createPaymentOrder = asyncHandler( async (req, res) => {
     
     const { appointmentId } = req.params
@@ -216,30 +228,32 @@ const createPaymentOrder = asyncHandler( async (req, res) => {
         throw new ApiError(400, "Something went wrong while fetching doctor.")
     }
 
-    const data = {}
-    data.appointmentId = appointmentId
-    data.date = appointment.date
-    data.timeSlot = timeSlot
-    data.queueNo = queueNo
-    data.doctorName = doctor.fullName
-    data.charges = doctor.charges
-
+    const data = {
+    appointmentId : appointmentId,
+    date : appointment.date,
+    timeSlot : appointment.timeSlot,
+    queueNo : appointment.queueNo,
+    doctorName : doctor.fullName,
+    charges : doctor.charges
+    }
+    
     const options = {
-        amount : amount*100, //as in INR currency amount subunits in paises so to convert to rupees
+        amount : data.charges*100, //as in INR currency amount subunits in paises so to convert to rupees
         currency : "INR",
         receipt: `order_recieptId_${appointment._id}`
     }
 
-   const order = razorpay.orders.create(options)
-   if(!order){
-        throw new ApiError(400, "Sommething went wrong while creating razorpay order.")
-   }
-
-   return res.status(201)
-   .json( new apiResponse(200, {data, order}, "Order created successfully, redirecting to payment page.") )
+    try {
+        const order = await razorpay.orders.create(options)
+        return res.status(201).json(
+            new apiResponse(200, { data, order }, "Order created successfully, redirecting to payment page.")
+        );
+    } catch (err) {
+        throw new ApiError(500, "Error while creating payment order.", err);
+    }
 })
 
-
+//testing from frontend
 const verifyPayment = asyncHandler( async (req, res) => {
     
     const { order_id, payment_id, signature } = req.body
@@ -254,12 +268,38 @@ const verifyPayment = asyncHandler( async (req, res) => {
         throw new ApiError(500, "Something went wrong while creating token to verify signature.")
     }
 
-    if(generatedToken !== signature){
-        throw new ApiError(402, "Payment failed, kindly retry.")
+    const order = await razorpay.orders.fetch(order_id)
+    if(!order){
+        throw new ApiError(400, "No order found with the current orderId.")
     }
 
+    const appointmentId =  order.receipt.split("order_recieptId_")[1]
 
-                
+    if(generatedToken !== signature){
+        //create failed payment db instance
+        const failedPayment = await Payment.create({
+            orderId : order_id,
+            paymentId : payment_id,
+            appointmentDetails : appointmentId,
+            paymentStatus : "failed",
+            recieptId : order.receipt
+        })
+
+        return res.status(402)
+        .json( new apiResponse(402, failedPayment, "Payment failed"))
+    }
+
+    //payment successfull, create db instance of payment
+    const successPayment = await Payment.create({
+        orderId : order_id,
+        paymentId : payment_id,
+        appointmentDetails : appointmentId,
+        paymentStatus : "successfull",
+        recieptId : order.receipt
+    })
+
+    return res.status(200)
+    .json( new apiResponse(200, successPayment, "Payment successfull."))           
 })
 
 

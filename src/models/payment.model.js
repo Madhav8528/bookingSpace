@@ -3,16 +3,20 @@ import mongoose, {Schema} from "mongoose";
 
 const paymentSchema = new Schema({
 
+    orderId : {
+        type : String,
+        required : true
+    },
+
+    paymentId : {
+        type : String,
+        required : true
+    },
+
     appointmentDetails : {
         type : Schema.Types.ObjectId,
         ref : "Appointment",
         required : true
-    },
-
-    amount : {
-        type : Number,
-        required : true,
-        trim : true
     },
 
     paymentStatus : {
@@ -21,13 +25,7 @@ const paymentSchema = new Schema({
         enum : ["successfull", "failed", "pending", "refunded"]
     },
 
-    paymentMethods : {
-        type : String,
-        required : true,
-        enum : ["UPI", "Debit Card", "Credit Card", "Other"]
-    },
-
-    transactinId : {
+    recieptId : {
         type : String,
         required : true
     }
@@ -36,4 +34,4 @@ const paymentSchema = new Schema({
 })
 
 
-export default Payment = mongoose.model("Payment", paymentSchema)
+export const Payment = mongoose.model("Payment", paymentSchema)
