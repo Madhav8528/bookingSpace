@@ -25,6 +25,11 @@ const appointmentSchema = new Schema({
         required : true,
     },
 
+    queueStatus : {
+        type : String,
+        enum : ["waiting", "ongoing", "done"]
+    },
+
     appointmentStatus : {
         type : String,
         required : true,

@@ -275,6 +275,11 @@ const verifyPayment = asyncHandler( async (req, res) => {
 
     const appointmentId =  order.receipt.split("order_recieptId_")[1]
 
+    const appointment = await Appointment.findById(appointmentId)
+    if(!appointment){
+        throw new ApiError(400, "No appointment found with this appointmentId.")
+    }
+
     if(generatedToken !== signature){
         //create failed payment db instance
         const failedPayment = await Payment.create({
@@ -284,7 +289,14 @@ const verifyPayment = asyncHandler( async (req, res) => {
             paymentStatus : "failed",
             recieptId : order.receipt
         })
+        if(!failedPayment){
+            throw new ApiError(400, "Something went wrong while creating payment db instance.")
+        }
 
+        appointment.paymentDetails = failedPayment._id
+        await appointment.save({
+            validateBeforeSave : false
+        })
         return res.status(402)
         .json( new apiResponse(402, failedPayment, "Payment failed"))
     }
@@ -297,9 +309,44 @@ const verifyPayment = asyncHandler( async (req, res) => {
         paymentStatus : "successfull",
         recieptId : order.receipt
     })
+    if(!successPayment){
+        throw new ApiError(400, "Something went wrong while creating payment db instance.")
+    }
+
+    appointment.paymentDetails = successPayment._id
+    await appointment.save({
+        validateBeforeSave : false
+    })
 
     return res.status(200)
     .json( new apiResponse(200, successPayment, "Payment successfull."))           
+})
+
+
+const trackQueueNo = asyncHandler( async (req, res) => {
+    
+    const { doctorId } = req.query
+    const { date } = req.body
+    if(!doctorId){
+        throw new ApiError(400, "Something went wrong getting doctorId.")
+    }
+
+    res.setHeader('Content-Type', 'text/event-stream')
+    res.setHeader('Cache-Control', 'no-cache')
+    res.setHeader('Connection', 'keep-alive')
+
+    let currentQueue;
+    const appointmentList = await Appointment.find({
+        doctorDetails : doctorId,
+        date : date
+    }).sort({ queueNo : 1 })
+
+    if(!appointmentList || appointmentList.length===0){
+        throw new ApiError(400, "No appointment found for this doctor for this date.")
+    }
+
+    
+
 })
 
 
@@ -309,5 +356,6 @@ export { listDoctors,
          bookAppointment,
          checkDoctorAvailability,
          createPaymentOrder,
-         verifyPayment
+         verifyPayment,
+         trackQueueNo
        }
