@@ -5,6 +5,7 @@ import { bookAppointment,
          createPaymentOrder,
          listDoctors,
          pagination, 
+         trackQueueNo, 
          verifyPayment} from "../controllers/appointment.controller.js";
 import { Doctor } from "../models/doctor.model.js"
 import { verifyJwt } from "../middlewares/auth.middleware.js";
@@ -23,5 +24,8 @@ router.route("/book-appointment/:doctorId").post(verifyJwt ,bookAppointment)
 router.route("/create-order/:appointmentId").post(createPaymentOrder)
 
 router.route("/payment-confirmation").post(verifyPayment)
+
+router.route("/track-queue/?doctorId").post(trackQueueNo)
+
 
 export default router;

@@ -327,26 +327,80 @@ const trackQueueNo = asyncHandler( async (req, res) => {
     
     const { doctorId } = req.query
     const { date } = req.body
-    if(!doctorId){
-        throw new ApiError(400, "Something went wrong getting doctorId.")
+    if(!doctorId || !date){
+        throw new ApiError(400, "Something went wrong getting doctorId and date.")
     }
 
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-cache')
     res.setHeader('Connection', 'keep-alive')
 
-    let currentQueue;
-    const appointmentList = await Appointment.find({
+    console.log(`Connection done for doctor ${doctorId} on date ${date}`);
+    
+    const ongoingAppointment = await Appointment.findOne({
         doctorDetails : doctorId,
-        date : date
-    }).sort({ queueNo : 1 })
+        date : date,
+        queueStatus : "ongoing"
+    })
 
-    if(!appointmentList || appointmentList.length===0){
-        throw new ApiError(400, "No appointment found for this doctor for this date.")
+    let currentQueue = ongoingAppointment ? ongoingAppointment.queueNo : null;
+    
+    res.write(`data: ${JSON.stringify({ queueNo: currentQueue })}\n\n`);
+
+    const changeStream = Appointment.watch([
+        {
+            $match : {
+                "fullDocument.doctorDetails" : doctorId,
+                "fullDocument.date" : date
+            }
+        }
+    ])
+
+    changeStream.on("change", (change) => {
+        if (change.operationType === "update") {
+            const {updatedFields} = change.updateDescription.updatedFields;
+            if (updatedFields.queueStatus === "ongoing") {
+                let newQueueNo = updatedFields.queueNo;
+                res.write(`data: ${JSON.stringify({ queueNo: newQueueNo })}\n\n`);
+            }
+        }
+    })
+
+    req.on("close", () => {
+        console.log(`Patient disconnected from queue tracking for doctor ${doctorId}.`);
+        changeStream.close();
+    });
+
+})
+
+//only doctor can update(check role)
+const updateQueue = asyncHandler( async (req, res) => {
+    
+    const { doctorId, date } = req.body
+    if(!doctorId || !date){
+        throw new ApiError(400, "Something went wrong getting doctorId and date.")
     }
 
-    
+    console.log(`Doctor ${doctorId} updating queue on ${date}`);
 
+    const currentAppointment = await Appointment.findOneAndUpdate(
+        { doctorDetails: doctorId, date: date, queueStatus: "ongoing" },
+        { $set: { queueStatus: "done" } },
+        { new: true }
+    );
+
+    const nextAppointment = await Appointment.findOneAndUpdate(
+        { doctorDetails: doctorId, date: date, queueStatus: "waiting" },
+        { $set: { queueStatus: "ongoing" } },
+        { new: true }
+    );
+
+    if (!nextAppointment) {
+        return res.json({ message: "No more patients in queue for today." });
+    }
+
+    return res,status(200)
+    .json(200, "Queue updated successfully.", {currentQueueNo: nextAppointment.queueNo})
 })
 
 
@@ -357,5 +411,6 @@ export { listDoctors,
          checkDoctorAvailability,
          createPaymentOrder,
          verifyPayment,
-         trackQueueNo
+         trackQueueNo,
+         updateQueue
        }

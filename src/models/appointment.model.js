@@ -27,7 +27,8 @@ const appointmentSchema = new Schema({
 
     queueStatus : {
         type : String,
-        enum : ["waiting", "ongoing", "done"]
+        enum : ["waiting", "ongoing", "done"],
+        default : "waiting"
     },
 
     appointmentStatus : {
