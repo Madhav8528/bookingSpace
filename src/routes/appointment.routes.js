@@ -25,7 +25,7 @@ router.route("/create-order/:appointmentId").post(createPaymentOrder)
 
 router.route("/payment-confirmation").post(verifyPayment)
 
-router.route("/track-queue/?doctorId").post(trackQueueNo)
+router.route("/track-queue?doctorId").post(trackQueueNo)
 
 
 export default router;

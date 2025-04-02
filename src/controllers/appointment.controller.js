@@ -325,7 +325,7 @@ const verifyPayment = asyncHandler( async (req, res) => {
 
 const trackQueueNo = asyncHandler( async (req, res) => {
     
-    const { doctorId } = req.query
+    const { doctorId } = req.query.doctorId
     const { date } = req.body
     if(!doctorId || !date){
         throw new ApiError(400, "Something went wrong getting doctorId and date.")
